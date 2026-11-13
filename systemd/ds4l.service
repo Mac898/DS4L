@@ -1,0 +1,13 @@
+[Unit]
+Description=DualSense userspace driver daemon (DS4L)
+# Gamepad input stays with the kernel hid-playstation module; audio mode
+# needs the DS4L fork of it (see driver/).
+
+[Service]
+ExecStart=@bindir@/ds4ld
+# Add --no-auto-dkms to stop the daemon installing the kernel module itself.
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

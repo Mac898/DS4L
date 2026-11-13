@@ -1,0 +1,38 @@
+--- a/drivers/hid/hid-playstation.c
++++ b/drivers/hid/hid-playstation.c
+@@ -21,6 +21,16 @@
+ 
+ #include "hid-ids.h"
+ 
++/*
++ * While audio is streaming the controller interleaves microphone data into
++ * its input reports, and the gamepad parser would read it as stick and button
++ * state. Such reports are dropped so a userspace audio owner can stream over
++ * hidraw while this driver keeps providing the input devices.
++ */
++static bool ds5_drop_all_input;
++module_param(ds5_drop_all_input, bool, 0644);
++MODULE_PARM_DESC(ds5_drop_all_input, "Drop all DualSense input reports (debugging)");
++
+ /* List of connected playstation devices. */
+ static DEFINE_MUTEX(ps_devices_lock);
+ static LIST_HEAD(ps_devices_list);
+@@ -82,6 +92,8 @@
+ #define DS_INPUT_REPORT_USB_SIZE		64
+ #define DS_INPUT_REPORT_BT			0x31
+ #define DS_INPUT_REPORT_BT_SIZE			78
++/* Set in data[1] of a BT input report that carries interleaved microphone data. */
++#define DS_INPUT_REPORT_BT_AUDIO		BIT(1)
+ #define DS_OUTPUT_REPORT_USB			0x02
+ #define DS_OUTPUT_REPORT_USB_SIZE		63
+ #define DS_OUTPUT_REPORT_BT			0x31
+@@ -1463,6 +1475,9 @@
+ 			return -EILSEQ;
+ 		}
+ 
++		if (ds5_drop_all_input || (data[1] & DS_INPUT_REPORT_BT_AUDIO))
++			return 0;
++
+ 		ds_report = (struct dualsense_input_report *)&data[2];
+ 	} else {
+ 		hid_err(hdev, "Unhandled reportID=%d\n", report->id);

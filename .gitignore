@@ -1,0 +1,6 @@
+# build dirs
+build/
+build-*/
+
+# local run artifacts
+*.sock
