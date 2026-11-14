@@ -417,11 +417,12 @@ static const char *bus_str(ds5_bus b) { return b == DS5_BUS_USB ? "usb" : "bt"; 
 /* Public (used by ctl.c for "list"). */
 void ds4l_devinfo_status(const struct ds4l_devinfo *i, char *out, size_t n)
 {
+    /* mac[] is in report order, the reverse of the usual notation. */
     char mac[24] = "-";
     if (i->have_mac)
         snprintf(mac, sizeof(mac), "%02x:%02x:%02x:%02x:%02x:%02x",
-                 i->mac[0], i->mac[1], i->mac[2],
-                 i->mac[3], i->mac[4], i->mac[5]);
+                 i->mac[5], i->mac[4], i->mac[3],
+                 i->mac[2], i->mac[1], i->mac[0]);
     snprintf(out, n,
              "id=%s node=%s bus=%s mac=%s audio=%d",
              i->id, i->node, bus_str(i->bus), mac, i->audio_mode);
