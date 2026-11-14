@@ -7,6 +7,7 @@
 
 #include "ds5/ds5.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define DS4L_MAX_HIDRAW 16
@@ -24,6 +25,13 @@ int ds4l_hidraw_list(ds4l_hid_info *out, int max);
 
 /* Open a specific /dev/hidrawN (O_RDWR|O_NONBLOCK). Returns fd or -1. */
 int ds4l_hidraw_open_dev(const char *devnode);
+
+/* sysfs directory of the USB device behind a hidraw node ("hidraw3"), for a
+ * wired pad. Returns 0 on success. */
+int ds4l_hidraw_usb_path(const char *node, char *out, size_t outsz);
+
+/* ALSA card number of the sound card on that USB device, or -1. */
+int ds4l_usb_sound_card(const char *usb_path);
 
 /* Feature reports, as read by hid-playstation (see driver/hid-playstation.c). */
 

@@ -140,6 +140,66 @@ int ds4l_hidraw_list(ds4l_hid_info *out, int max)
     return n;
 }
 
+/* USB sound card */
+
+/* The hidraw device sits below a USB interface (.../1-2/1-2:1.3/0003:...);
+ * the USB device is the first parent with a busnum file. */
+int ds4l_hidraw_usb_path(const char *node, char *out, size_t outsz)
+{
+    char path[512];
+    snprintf(path, sizeof(path), "/sys/class/hidraw/%s/device", node);
+    char *real = realpath(path, NULL);
+    if (!real)
+        return -1;
+
+    int rc = -1;
+    char *slash;
+    while ((slash = strrchr(real, '/')) != NULL && slash != real) {
+        *slash = '\0';
+        snprintf(path, sizeof(path), "%s/busnum", real);
+        if (access(path, F_OK) == 0) {
+            if (strlen(real) < outsz) {
+                snprintf(out, outsz, "%s", real);
+                rc = 0;
+            }
+            break;
+        }
+    }
+    free(real);
+    return rc;
+}
+
+/* /sys/class/sound/cardN/device is one of the USB device's interfaces. */
+int ds4l_usb_sound_card(const char *usb_path)
+{
+    DIR *d = opendir("/sys/class/sound");
+    if (!d)
+        return -1;
+
+    size_t len = strlen(usb_path);
+    int card = -1;
+    struct dirent *de;
+    while ((de = readdir(d)) != NULL) {
+        int idx;
+        char tail;
+        if (sscanf(de->d_name, "card%d%c", &idx, &tail) != 1)
+            continue;
+        char path[512];
+        snprintf(path, sizeof(path), "/sys/class/sound/%s/device", de->d_name);
+        char *real = realpath(path, NULL);
+        if (!real)
+            continue;
+        int hit = strncmp(real, usb_path, len) == 0 && real[len] == '/';
+        free(real);
+        if (hit) {
+            card = idx;
+            break;
+        }
+    }
+    closedir(d);
+    return card;
+}
+
 /* feature reports */
 
 /* HIDIOCGFEATURE with report id in buf[0]. Bluetooth feature reports carry a

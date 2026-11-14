@@ -19,6 +19,7 @@
 #endif
 
 #include "pw_nodes.h"
+#include "pw_route.h"
 
 #ifdef DS4L_HAVE_PIPEWIRE
 
@@ -90,6 +91,7 @@ void ds4l_pw_shutdown(void)
 {
     if (!g_pw.inited || !g_pw.loop)
         return;
+    ds4l_route_shutdown();
     pw_thread_loop_stop(g_pw.loop);
     if (g_pw.core) { pw_core_disconnect(g_pw.core); g_pw.core = NULL; }
     if (g_pw.context) { pw_context_destroy(g_pw.context); g_pw.context = NULL; }
@@ -98,6 +100,9 @@ void ds4l_pw_shutdown(void)
     g_pw.ok = 0;
     g_pw.inited = 0;
 }
+
+struct pw_thread_loop *ds4l_pw_loop(void) { return g_pw.ok ? g_pw.loop : NULL; }
+struct pw_core        *ds4l_pw_core(void) { return g_pw.ok ? g_pw.core : NULL; }
 
 /* per-device node pair */
 

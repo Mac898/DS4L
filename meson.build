@@ -40,6 +40,7 @@ ds4l_core_src = [
   'src/hidraw.c',
   'src/dkms.c',
   'src/pw_nodes.c',
+  'src/pw_route.c',
   'src/manager.c',
   'src/ctl.c',
 ]

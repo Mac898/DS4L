@@ -24,4 +24,12 @@ int  ds4l_pw_start(ds4l_pw_nodes **out, ds5_device *dev, const char *id);
 /* Destroy the pair. MUST be called before ds5_close(dev). Idempotent. */
 void ds4l_pw_stop(ds4l_pw_nodes *n);
 
+#ifdef DS4L_HAVE_PIPEWIRE
+/* The shared loop and core, for pw_route.c. NULL until ds4l_pw_init(). */
+struct pw_thread_loop;
+struct pw_core;
+struct pw_thread_loop *ds4l_pw_loop(void);
+struct pw_core        *ds4l_pw_core(void);
+#endif
+
 #endif /* DS4L_PW_NODES_H */

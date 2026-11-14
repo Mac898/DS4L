@@ -5,14 +5,16 @@
  * Owns the set of connected controllers: udev hotplug, per-device hidraw
  * transport and identity (MAC, firmware), the output thread (ds5 core) and,
  * for Bluetooth pads only, the PipeWire nodes (USB pads already show up as a
- * real sound card). Also the audio gate: audio reports are only sent while the
- * DS4L kernel module is loaded.
+ * real sound card), and each pad's entry in the stream router (pw_route.c).
+ * Also the audio gate: audio reports are only sent while the DS4L kernel
+ * module is loaded.
  */
 #define _GNU_SOURCE
 
 #include "manager.h"
 
 #include "pw_nodes.h"
+#include "pw_route.h"
 #include "ds5/ds5.h"
 
 #ifdef DS4L_HAVE_UDEV
@@ -99,6 +101,7 @@ static void set_audio(ds4l_mgr *m, struct ds4l_dev *d, int on)
 static void dev_destroy(ds4l_mgr *m, struct ds4l_dev *d)
 {
     (void)m;
+    ds4l_route_remove(d->info.id);
     /* PipeWire nodes first: their callbacks reference the device. */
     ds4l_pw_stop(d->pw);
     /* Then the device core: joins its thread and sends mic-off before closing. */
@@ -106,21 +109,46 @@ static void dev_destroy(ds4l_mgr *m, struct ds4l_dev *d)
     free(d);
 }
 
-/* Attach the PipeWire nodes (Bluetooth only). Call without m->lock held: this
- * takes the PipeWire loop lock, and a callback on that thread may be waiting
- * for m->lock. */
-static void dev_pw_attach(ds4l_mgr *m, struct ds4l_dev *d)
+/* Route playback streams tagged with the pad's address to its sink (see
+ * pw_route.c): the virtual sink over Bluetooth, the USB sound card wired. */
+static void dev_route(ds4l_mgr *m, struct ds4l_dev *d)
 {
-    if (d->info.bus != DS5_BUS_BT) {
-        mlog(m, LOG_INFO, "%s: USB controller — native USB sound card in use, "
-             "no virtual audio nodes", d->info.id);
+    if (!d->info.have_mac)
+        return;
+    /* info.mac holds the address in report order (reversed). */
+    uint8_t addr[6];
+    for (int i = 0; i < 6; i++)
+        addr[i] = d->info.mac[5 - i];
+
+    char sink[64] = "", usb[256] = "";
+    if (d->info.bus == DS5_BUS_BT) {
+        if (!d->pw)
+            return;
+        snprintf(sink, sizeof(sink), "ds4l_output_%s", d->info.id);
+    } else if (ds4l_hidraw_usb_path(d->info.node, usb, sizeof(usb)) != 0) {
+        mlog(m, LOG_WARN, "%s: USB device not found in sysfs, streams "
+             "tagged for it are not routed", d->info.id);
         return;
     }
-    if (!ds4l_pw_available() || ds4l_pw_init() != 0)
-        return;
-    if (ds4l_pw_start(&d->pw, d->dev, d->info.id) != 0)
+    if (ds4l_route_add(d->info.id, addr, sink[0] ? sink : NULL, usb,
+                       m->log, m->log_ud) != 0)
+        mlog(m, LOG_WARN, "%s: stream routing unavailable", d->info.id);
+}
+
+/* Attach the PipeWire nodes (Bluetooth only) and stream routing. Call without
+ * m->lock held: this takes the PipeWire loop lock, and a callback on that
+ * thread may be waiting for m->lock. */
+static void dev_pw_attach(ds4l_mgr *m, struct ds4l_dev *d)
+{
+    if (d->info.bus != DS5_BUS_BT)
+        mlog(m, LOG_INFO, "%s: USB controller — native USB sound card in use, "
+             "no virtual audio nodes", d->info.id);
+    else if (ds4l_pw_available() && ds4l_pw_init() == 0 &&
+             ds4l_pw_start(&d->pw, d->dev, d->info.id) != 0)
         mlog(m, LOG_WARN, "%s: PipeWire nodes failed (audio disabled for "
              "this device; control still works)", d->info.id);
+    if (ds4l_pw_available())
+        dev_route(m, d);
 }
 
 static struct ds4l_dev *dev_create(ds4l_mgr *m, const ds4l_hid_info *hi)

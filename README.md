@@ -71,6 +71,12 @@ as a wired controller shows. Audio mode opens when a stream starts and
 closes when the last one stops. USB pads use the real USB sound card and
 need nothing (`ds4l audio on` is refused there).
 
+With several pads, every device has the same name. An app that wants a
+given pad names its playback stream after the pad's Bluetooth address
+(`media.name`, e.g. "HD haptics (d4-2f-4b-7e-97-7d)"; SDL apps set
+`SDL_HINT_AUDIO_DEVICE_STREAM_NAME`), and the daemon moves that stream to
+the pad's own device, Bluetooth or USB. Other streams are left alone.
+
 ## The kernel module
 
 In audio mode the controller interleaves audio into its input reports, and
@@ -128,6 +134,7 @@ session. Details and a probe for your own adapter are in
 * `src/device.c`: per-controller core (frame pacing, codecs, echo tracking)
 * `src/manager.c`: hotplug, device set, audio gate
 * `src/pw_nodes.c`: PipeWire nodes
+* `src/pw_route.c`: moves streams tagged with a pad address to its sink
 * `src/ds5_protocol.c`, `src/ds5_audio.c`: wire format and codecs
 * `src/ctl.c`: socket protocol
 

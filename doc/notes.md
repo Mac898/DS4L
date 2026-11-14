@@ -95,6 +95,34 @@ The Bluetooth nodes in `src/pw_nodes.c` copy this.
 * Proton matches controller endpoints on hotplug by container ID. One
   stable identity per pad across evdev, SDL, PipeWire and the control
   socket isn't done.
+* SDL 3.4 names a PipeWire device by `node.description` only, so with
+  several pads every sink looks the same, and device order isn't stable.
+  What an app does know is the pad's address: SDL's gamepad serial for a
+  DualSense is its Bluetooth address (`d4-2f-4b-7e-97-7d`, over USB too),
+  the evdev `uniq` the same. So the app puts the address in its stream
+  name, and `src/pw_route.c` moves the stream to that pad's sink. SDL's
+  `SDL_HINT_AUDIO_DEVICE_STREAM_NAME` becomes `media.name` with the
+  PipeWire backend (plus `node.name` and `node.description`) and with the
+  PulseAudio one.
+* The address is matched in `media.name` as six hex pairs separated by
+  `:`, `-` or nothing, any case. The pairing report (0x09), and so our id,
+  has the bytes reversed.
+* Wired pads: hidraw device -> USB device (first parent with `busnum`) ->
+  `/sys/class/sound/cardN` below it -> the `Audio/Sink` node with that
+  `alsa.card`, the 4-channel one if the profile (pro-audio) has several.
+* The move is `target.object` in the `default` metadata, set to the sink's
+  `node.name`. WirePlumber 0.5 remembers a moved stream's target per
+  `media.role` (SDL: "Game") and replays it on later streams without a
+  target of their own, but only for targets given by serial. A name moves
+  the stream and leaves no pad sink remembered; it does clear a target
+  already remembered for that role. PipeWire drops the entry when the
+  stream goes.
+* Each stream is moved once per sink serial. Moving it by hand afterwards
+  sticks until the pad reconnects. On start, entries already pointing at
+  the right sink are left as they are.
+* SDL opens a physical device once; a second `SDL_OpenAudioDevice` on it
+  shares the first stream and its name. Apps must open a separate device
+  per pad (any one with the right name; the daemon fixes the pairing).
 
 ## Bluetooth adapters
 
