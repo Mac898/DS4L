@@ -70,6 +70,8 @@ static void send_line(int fd, const char *fmt, ...)
     va_end(ap);
     if (n < 0)
         return;
+    if (n > (int)sizeof(buf) - 2)   /* truncated */
+        n = (int)sizeof(buf) - 2;
     buf[n++] = '\n';
     ssize_t rc;
     do {
