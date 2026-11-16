@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — manager.c : multi-controller device manager.
+ * DS4L manager.c: multi-controller device manager.
  * Copyright (c) 2026 Macauley Lim
  *
  * Owns the set of connected controllers: udev hotplug, per-device hidraw
@@ -141,7 +141,7 @@ static void dev_route(ds4l_mgr *m, struct ds4l_dev *d)
 static void dev_pw_attach(ds4l_mgr *m, struct ds4l_dev *d)
 {
     if (d->info.bus != DS5_BUS_BT)
-        mlog(m, LOG_INFO, "%s: USB controller — native USB sound card in use, "
+        mlog(m, LOG_INFO, "%s: USB controller, native USB sound card in use, "
              "no virtual audio nodes", d->info.id);
     else if (ds4l_pw_available() && ds4l_pw_init() == 0 &&
              ds4l_pw_start(&d->pw, d->dev, d->info.id) != 0)
@@ -279,7 +279,7 @@ void ds4l_mgr_hotplug_handle(ds4l_mgr *m)
     struct udev_device *ud;
     while ((ud = udev_monitor_receive_device(m->mon)) != NULL)
         udev_device_unref(ud);
-    /* Coalesce: just rescan. */
+    /* Drain the events and rescan once. */
     ds4l_mgr_rescan(m);
 }
 
@@ -442,7 +442,6 @@ static const uint8_t PLAYER_LED_MASKS[5] = {
 
 static const char *bus_str(ds5_bus b) { return b == DS5_BUS_USB ? "usb" : "bt"; }
 
-/* Public (used by ctl.c for "list"). */
 void ds4l_devinfo_status(const struct ds4l_devinfo *i, char *out, size_t n)
 {
     /* mac[] is in report order, the reverse of the usual notation. */
@@ -467,7 +466,6 @@ int ds4l_mgr_command(ds4l_mgr *m, struct ds4l_dev *dev,
     ds5_device *d = dev->dev;
     resp[0] = '\0';
 
-    /* status */
     if (!strcmp(cmd, "status")) {
         ds4l_devinfo_status(&dev->info, resp, respsz);
         ds5_stats st;
@@ -482,7 +480,6 @@ int ds4l_mgr_command(ds4l_mgr *m, struct ds4l_dev *dev,
         return 0;
     }
 
-    /* input state */
     if (!strcmp(cmd, "input")) {
         ds5_input_state in;
         if (!ds5_get_input(d, &in)) {
@@ -513,7 +510,7 @@ int ds4l_mgr_command(ds4l_mgr *m, struct ds4l_dev *dev,
         }
         if (on && dev->info.bus == DS5_BUS_USB) {
             snprintf(resp, respsz,
-                     "refused: audio over USB is native — the controller's "
+                     "refused: audio over USB is native; the controller's "
                      "real USB sound card is used, no virtual audio needed");
             return -1;
         }

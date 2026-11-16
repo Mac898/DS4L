@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — hidraw.h : multi-device hidraw enumeration + DualSense identity.
+ * DS4L hidraw.h: multi-device hidraw enumeration + DualSense identity.
  * Copyright (c) 2026 Macauley Lim
  */
 #ifndef DS4L_HIDRAW_H

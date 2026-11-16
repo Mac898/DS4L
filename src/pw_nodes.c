@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — pw_nodes.c : per-controller PipeWire virtual audio devices.
+ * DS4L pw_nodes.c: per-controller PipeWire virtual audio devices.
  * Copyright (c) 2026 Macauley Lim
  *
  * The nodes mirror the wired DualSense USB sound card, so Bluetooth and USB
@@ -245,7 +245,7 @@ int ds4l_pw_start(ds4l_pw_nodes **out, ds5_device *dev, const char *id)
     if (!n->out)
         goto fail;
 
-    /* 2-channel capture source (created without Opus too, for spec parity —
+    /* 2-channel capture source (created without Opus too, for spec parity:
      * it just stays silent if the mic can't decode). */
     snprintf(name, sizeof(name), "ds4l_input_%s", id);
     n->in = pw_stream_new_simple(

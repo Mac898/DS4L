@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — ds4l.c : the command-line client for the ds4ld daemon.
+ * DS4L ds4l.c: the command-line client for the ds4ld daemon.
  * Copyright (c) 2026 Macauley Lim
  *
  * Connects to the daemon's control socket and forwards a command. The device
@@ -18,7 +18,7 @@
 static void usage(FILE *f)
 {
     fprintf(f,
-        "ds4l — control the DS4L daemon (DualSense userspace driver)\n"
+        "ds4l: control the DS4L daemon (DualSense userspace driver)\n"
         "\n"
         "usage: ds4l [options] <command> [args...]\n"
         "\n"
@@ -79,11 +79,8 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    /* Build the daemon protocol line. Daemon commands pass straight through;
-     * device commands are "<id|-> <verb> <args...>": when the token after the
-     * verb uniquely names a connected device (id prefix, resolved against the
-     * daemon's list), it is the id; otherwise the first controller ("-") is
-     * addressed. */
+    /* Device commands go out as "<id|-> <verb> <args...>". The token after
+     * the verb is the id if it uniquely prefixes a connected device's id. */
     char *fwd[40];
     int nf = 0;
     const char *cmd = argv[optind];
@@ -103,11 +100,10 @@ int main(int argc, char **argv)
             } else if (r < 0) {
                 return 1;   /* daemon unreachable */
             }
-            /* r == 0: token is an argument, not an id — default device. */
         }
 
         fwd[nf++] = (char *)id;
-        fwd[nf++] = (char *)cmd;   /* the verb follows the id on the wire */
+        fwd[nf++] = (char *)cmd;
         for (int i = first_arg; i < argc && nf < 40; i++)
             fwd[nf++] = argv[i];
     }

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — dkms.h : hid-playstation DS4L module detection + auto-install.
+ * DS4L dkms.h: hid-playstation DS4L module detection + auto-install.
  * Copyright (c) 2026 Macauley Lim
  */
 #ifndef DS4L_DKMS_H

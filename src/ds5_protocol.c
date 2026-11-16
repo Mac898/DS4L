@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — ds5_protocol.c : wire-protocol implementation.
+ * DS4L ds5_protocol.c: wire-protocol implementation.
  * Copyright (c) 2026 Macauley Lim
  */
 #include "ds5/ds5_protocol.h"
@@ -160,7 +160,7 @@ size_t ds5_build_bt_state(uint8_t *buf, const struct ds5_output_common *common,
 size_t ds5_build_usb_state(uint8_t *buf, const struct ds5_output_common *common)
 {
     /* USB output report 0x02: report id + the 47-byte common body, zero-padded
-     * to 63 bytes. No seq/tag and no CRC — that framing is Bluetooth-only
+     * to 63 bytes. No seq/tag and no CRC; that framing is Bluetooth-only
      * (wire format per hid-playstation's dualsense_output_report_usb). */
     memset(buf, 0, DS5_OUT_REPORT_USB_SIZE);
     buf[0] = DS5_OUT_REPORT_USB;

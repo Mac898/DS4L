@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 # Copyright (c) 2026 Macauley Lim
 #
-# ds4l-dkms-ensure.sh — root helper: make sure the DS4L hid-playstation
+# ds4l-dkms-ensure.sh: root helper: make sure the DS4L hid-playstation
 # fork is built, DKMS-installed and loaded.
 #
 # Usage: ds4l-dkms-ensure.sh [driver-dir]   (default: ../driver)

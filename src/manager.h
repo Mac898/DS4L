@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — manager.h : the multi-controller device manager.
+ * DS4L manager.h: the multi-controller device manager.
  * Copyright (c) 2026 Macauley Lim
  */
 #ifndef DS4L_MANAGER_H

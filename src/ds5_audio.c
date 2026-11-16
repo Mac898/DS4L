@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — audio codec.
+ * DS4L: audio codec.
  * Copyright (c) 2026 Macauley Lim
  *
  * The controller plays one audio frame every 10.67 ms: 32 haptic samples at

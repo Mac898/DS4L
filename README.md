@@ -193,7 +193,7 @@ session. Details and a probe for your own adapter are in
 ## License
 
 Userspace (everything except `driver/`): **LGPL-3.0-or-later**,
-© 2026 Macauley Lim — [LICENSE](LICENSE), [COPYING.GPL-3](COPYING.GPL-3).
+© 2026 Macauley Lim, [LICENSE](LICENSE), [COPYING.GPL-3](COPYING.GPL-3).
 
 `driver/` derives from the in-kernel `hid-playstation` driver and is
 **GPL-2.0-or-later** ([driver/README.md](driver/README.md)).

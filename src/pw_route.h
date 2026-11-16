@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — pw_route.h : send each pad's tagged playback stream to its sink.
+ * DS4L pw_route.h: send each pad's tagged playback stream to its sink.
  * Copyright (c) 2026 Macauley Lim
  */
 #ifndef DS4L_PW_ROUTE_H

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — pw_route.c : send each pad's tagged playback stream to its sink.
+ * DS4L pw_route.c: send each pad's tagged playback stream to its sink.
  * Copyright (c) 2026 Macauley Lim
  *
  * Every pad's sink has the same description, the wired card's, and SDL

@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — hidraw.c : enumerate every connected DualSense over hidraw.
+ * DS4L hidraw.c: enumerate every connected DualSense over hidraw.
  * Copyright (c) 2026 Macauley Lim
  *
- * Lists every connected DualSense (the daemon manages several at once) and
- * reads the feature reports needed for identity: MAC (0x09) and firmware
- * info (0x20), as hid-playstation does.
+ * Also reads the identity feature reports, MAC (0x09) and firmware (0x20),
+ * as hid-playstation does.
  */
 #define _GNU_SOURCE
 

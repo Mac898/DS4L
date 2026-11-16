@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — main.c : the ds4ld daemon.
+ * DS4L main.c: the ds4ld daemon.
  * Copyright (c) 2026 Macauley Lim
  *
  * One daemon for every connected DualSense, Bluetooth or USB. Gamepad input
@@ -62,7 +62,7 @@ static int maybe_auto_dkms(ds4l_mgr *m, int auto_dkms)
 static void usage(FILE *f)
 {
     fprintf(f,
-        "ds4ld — DualSense userspace driver daemon\n"
+        "ds4ld: DualSense userspace driver daemon\n"
         "\n"
         "usage: ds4ld [options]\n"
         "  -s, --socket PATH   control socket "
@@ -156,7 +156,6 @@ int main(int argc, char **argv)
     fprintf(stderr, "ds4ld: info: listening on %s%s\n", sockpath,
             ds4l_pw_available() ? ", PipeWire nodes" : ", no PipeWire (audio off)");
 
-    /* Initial device set */
     ds4l_mgr_rescan(m);
     maybe_auto_dkms(m, auto_dkms);
 

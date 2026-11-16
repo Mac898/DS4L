@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — per-controller device core.
+ * DS4L: per-controller device core.
  * Copyright (c) 2026 Macauley Lim
  *
  * Every function is thread-safe unless noted. Output is written by the

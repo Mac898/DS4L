@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — dkms.c : hid-playstation DS4L module detection + auto-install.
+ * DS4L dkms.c: hid-playstation DS4L module detection + auto-install.
  * Copyright (c) 2026 Macauley Lim
  *
  * The DS4L kernel module (driver/) is hid-playstation plus a filter for the
@@ -89,8 +89,6 @@ int ds4l_dkms_audio_safe(void)
 {
     return ds4l_dkms_probe() == DS4L_DKMS_FORK_LOADED;
 }
-
-/* install / reload */
 
 /* Where the root helper and the driver tree live: $DS4L_TOOLS_DIR and
  * $DS4L_DRIVER_DIR if set, else the installed share/ds4l copy, else the

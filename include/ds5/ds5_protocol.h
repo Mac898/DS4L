@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
  *
- * DS4L — DualSense wire protocol: report layouts, segment framing, CRC and
+ * DS4L: DualSense wire protocol: report layouts, segment framing, CRC and
  * adaptive-trigger effect encoders.
  * Copyright (c) 2026 Macauley Lim
  *
@@ -52,16 +52,11 @@ extern "C" {
 #define DS5_SEG_SPEAKER               0x13u  /* Opus, internal speaker      */
 #define DS5_SEG_HEADSET               0x16u  /* Opus, 3.5 mm headset        */
 
-/* The state segment is 63 bytes: the 47-byte common body, zero padded. */
-#define DS5_STATE_SEG_BYTES           63
-/* Haptic segment is 64 bytes = 32 stereo int8 frames. */
-#define DS5_HAPTIC_SEG_BYTES          64
-/* Speaker Opus frame size used on the wire. */
+#define DS5_STATE_SEG_BYTES           63     /* common body, zero padded */
+#define DS5_HAPTIC_SEG_BYTES          64     /* 32 stereo int8 frames */
 #define DS5_SPEAKER_SEG_BYTES         200
-/* Native haptic sample rate the controller's BT audio path expects. */
 #define DS5_HAPTIC_RATE_HZ            3000
-/* Controller-side audio buffer length hint. */
-#define DS5_AUDIO_BUFFER_LEN          48
+#define DS5_AUDIO_BUFFER_LEN          48     /* controller buffer hint */
 
 /* valid_flag0: which fields of the common body to apply */
 #define DS5_VF0_COMPATIBLE_VIBRATION  (1u << 0)
@@ -95,8 +90,7 @@ extern "C" {
 #define DS5_TRIGGER_VIBRATION         0x26u
 #define DS5_TRIGGER_MACHINE           0x27u
 
-/* 11-byte trigger parameter block: mode + 10 params. */
-#define DS5_TRIGGER_BLOCK_BYTES       11
+#define DS5_TRIGGER_BLOCK_BYTES       11     /* mode + 10 params */
 
 /*
  * The 47-byte "common" output body, shared by the USB (0x02), BT (0x31) and
@@ -133,22 +127,18 @@ struct ds5_output_common {
 _Static_assert(sizeof(struct ds5_output_common) == 47,
                "ds5_output_common must be exactly 47 bytes (wire format)");
 
-/* CRC-32 (reflected, poly 0xEDB88320) */
-/* Running CRC with no init/final inversion (matches Linux crc32_le semantics
- * used by the firmware and dualsensectl). */
+/* Running CRC-32 (reflected, 0xEDB88320) with no init/final inversion, like
+ * the kernel's crc32_le. */
 uint32_t ds5_crc32_le(uint32_t crc, const uint8_t *data, size_t len);
-/* Full DualSense report CRC: seed byte folded in, standard final inversion.
- * ds5_report_crc(seed, data, len) == standard CRC-32 of (seed ++ data). */
+/* Standard CRC-32 of (seed ++ data): the DualSense report CRC. */
 uint32_t ds5_report_crc(uint8_t seed, const uint8_t *data, size_t len);
 
-/* Write the little-endian output CRC into the last 4 bytes of a BT report
- * buffer of total length `len`. */
+/* Write the output CRC into the last 4 bytes of a BT report. */
 void ds5_finalize_bt_report(uint8_t *report, size_t len);
-/* Verify the trailing CRC of a received/echoed report (seed selectable). */
+/* Verify a report's trailing CRC. */
 int  ds5_check_crc(uint8_t seed, const uint8_t *report, size_t len);
 
-/* Trigger-effect encoders (fill an 11-byte mode+params block) */
-/* Off / neutral. */
+/* Trigger-effect encoders: fill an 11-byte mode+params block. */
 void ds5_trig_off(uint8_t out[DS5_TRIGGER_BLOCK_BYTES]);
 /* Constant resistance from `position` (0-9) to the end, `strength` 1-8. */
 void ds5_trig_feedback(uint8_t out[DS5_TRIGGER_BLOCK_BYTES],
@@ -159,23 +149,20 @@ void ds5_trig_weapon(uint8_t out[DS5_TRIGGER_BLOCK_BYTES],
 /* Vibrate around `position` at `amplitude` (1-8) and `frequency` Hz. */
 void ds5_trig_vibration(uint8_t out[DS5_TRIGGER_BLOCK_BYTES],
                         uint8_t position, uint8_t amplitude, uint8_t frequency);
-/* Raw escape: caller supplies mode + up to 10 params. */
+/* Mode + up to 10 params as given. */
 void ds5_trig_raw(uint8_t out[DS5_TRIGGER_BLOCK_BYTES],
                   uint8_t mode, const uint8_t *params, size_t nparams);
 
-/* Report assembly */
-/* Build a compact state-only BT 0x31 report into `buf` (must be >= 78 bytes).
- * `seq` is the low 4 bits of the sequence counter. Returns bytes written. */
+/* State-only BT 0x31 report (78 bytes); `seq` is 4 bits. Returns length. */
 size_t ds5_build_bt_state(uint8_t *buf, const struct ds5_output_common *common,
                           uint8_t seq);
-/* Build a state-only USB 0x02 report into `buf` (must be >= 63 bytes): no
- * seq/tag, no CRC. Returns bytes written (63). */
+/* State-only USB 0x02 report (63 bytes). Returns length. */
 size_t ds5_build_usb_state(uint8_t *buf, const struct ds5_output_common *common);
 
 /* One controller audio frame: 32 stereo haptic samples (3 kHz int8) plus one
  * Opus speaker frame. The controller consumes 93.75 of these per second
  * (10.67 ms each), so the 480-sample Opus frame spans 512 samples of 48 kHz
- * source audio — the speaker path runs at 45 kHz. */
+ * source audio; the speaker path runs at 45 kHz. */
 struct ds5_audio_frame {
     int8_t  haptics[DS5_HAPTIC_SEG_BYTES];
     uint8_t opus[DS5_SPEAKER_SEG_BYTES];

@@ -106,7 +106,6 @@ int ds4l_ctl_client(const char *path, int argc, char **argv)
         return 1;
     }
 
-    /* Send the command as one line. */
     char line[2048];
     size_t len = 0;
     for (int i = 0; i < argc && len + 2 < sizeof(line); i++) {

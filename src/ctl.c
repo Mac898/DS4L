@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — ctl.c : line-oriented Unix-socket control protocol.
+ * DS4L ctl.c: line-oriented Unix-socket control protocol.
  * Copyright (c) 2026 Macauley Lim
  *
  * Protocol (one command per line, replies one line each, prefix-tagged):
@@ -102,7 +102,6 @@ static void send_line(int fd, const char *fmt, ...)
 /* Handle one command line; writes 1..N reply lines. */
 static void handle_line(ds4l_mgr *m, char *line, int fd)
 {
-    /* Tokenize. */
     char *argv[32];
     int argc = 0;
     char *save = NULL;
@@ -140,7 +139,6 @@ static void handle_line(ds4l_mgr *m, char *line, int fd)
         return;
     }
 
-    /* Device command: "<id|-> <cmd> [args]" */
     const char *id = strcmp(argv[0], "-") == 0 ? NULL : argv[0];
     struct ds4l_dev *dev = ds4l_mgr_find(m, id);
     if (!dev) {

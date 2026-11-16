@@ -5,7 +5,7 @@
 
 Timestamps input reports arriving on a DualSense hidraw node and reports
 inter-arrival statistics: nominal report period, gap events (inter-arrival
-above a threshold) and the spacing between gap events — to detect periodic
+above a threshold) and the spacing between gap events, to detect periodic
 Bluetooth dropouts (e.g. the 2560 ms / 5-25 ms pattern caused by inquiry
 scanning or Wi-Fi coex on another machine).
 
@@ -54,12 +54,12 @@ def main() -> int:
         try:
             os.read(fd, 512)
         except OSError:
-            break  # device disconnected — report what we collected
+            break  # device disconnected: report what we collected
         stamps.append(time.monotonic())
     os.close(fd)
 
     if len(stamps) < 10:
-        print(f"error: only {len(stamps)} reports in {duration}s — is the "
+        print(f"error: only {len(stamps)} reports in {duration}s; is the "
               "controller connected and streaming?", file=sys.stderr)
         return 1
 
@@ -72,7 +72,7 @@ def main() -> int:
         return srt[min(len(srt) - 1, int(len(srt) * p))]
 
     # Gap events: anything past the threshold AND clearly off nominal
-    # (2.5x median) — catches stalls, not ordinary jitter.
+    # (2.5x median): catches stalls, not ordinary jitter.
     gap_thr = max(thr_ms, median * 2.5)
     gaps = [
         (stamps[i] - t0, intervals[i])

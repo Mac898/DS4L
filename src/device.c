@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — device.c : per-controller device core.
+ * DS4L device.c: per-controller device core.
  * Copyright (c) 2026 Macauley Lim
  *
  * One I/O thread per controller sleeps in ppoll() on the hidraw fd and an

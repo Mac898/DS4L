@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-3.0-or-later
- * DS4L — audio codec: 48 kHz quad PCM -> controller audio frames, and
+ * DS4L: audio codec: 48 kHz quad PCM -> controller audio frames, and
  * mic Opus -> PCM.
  * Copyright (c) 2026 Macauley Lim
  */
