@@ -13,7 +13,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "src/ctl.h"
+#include "src/ctl_client.h"
 
 static void usage(FILE *f)
 {

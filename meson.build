@@ -32,7 +32,7 @@ else
   message('libpipewire NOT found: virtual audio devices disabled (control still works)')
 endif
 
-# Everything except main.c: shared by the daemon and the ds4l CLI.
+# Everything the daemon needs besides main.c.
 ds4l_core_src = [
   'src/ds5_protocol.c',
   'src/ds5_audio.c',
@@ -45,8 +45,13 @@ ds4l_core_src = [
   'src/ctl.c',
 ]
 
+# The socket client alone, so the CLI needs no PipeWire, udev or Opus.
+ds4l_ctl_client = static_library('ds4l_ctl_client', 'src/ctl_client.c',
+  include_directories : inc)
+
 ds4l_core = static_library('ds4l_core', ds4l_core_src,
   include_directories : inc,
+  link_with : ds4l_ctl_client,
   dependencies : deps,
   c_args : cargs)
 
@@ -58,10 +63,8 @@ executable('ds4ld', 'src/main.c',
   install : true)
 
 executable('ds4l', 'cli/ds4l.c',
-  include_directories : [inc, include_directories('.')],
-  link_with : ds4l_core,
-  dependencies : deps,
-  c_args : cargs,
+  include_directories : include_directories('.'),
+  link_with : ds4l_ctl_client,
   install : true)
 
 # Ship the DKMS driver tree + root helper next to the installed daemon so
