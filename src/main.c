@@ -20,9 +20,11 @@
 #include <errno.h>
 #include <getopt.h>
 #include <poll.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/signalfd.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
 
@@ -93,13 +95,31 @@ int main(int argc, char **argv)
         case 's': sockpath = optarg; break;
         case 'v': verbose = 1; break;
         case 'n': auto_dkms = 0; break;
-        case 'k': keepalive = atoi(optarg); break;
+        case 'k': {
+            char *end;
+            long v = strtol(optarg, &end, 10);
+            if (*optarg == '\0' || *end != '\0' || v < 0 || v > 3) {
+                fprintf(stderr, "ds4ld: --keepalive takes 0-3\n");
+                return 2;
+            }
+            keepalive = (int)v;
+            break;
+        }
         case 'h': usage(stdout); return 0;
         default:  usage(stderr); return 2;
         }
     }
     if (!sockpath)
         sockpath = ds4l_ctl_default_path();
+
+    /* Take SIGINT/SIGTERM through the poll loop so the cleanup below runs.
+     * Blocked before any thread starts, so every thread inherits it. */
+    sigset_t sigs;
+    sigemptyset(&sigs);
+    sigaddset(&sigs, SIGINT);
+    sigaddset(&sigs, SIGTERM);
+    sigprocmask(SIG_BLOCK, &sigs, NULL);
+    int sig_fd = signalfd(-1, &sigs, SFD_CLOEXEC);
 
     ds4l_mgr *m = ds4l_mgr_create(log_cb, &verbose);
     if (!m) {
@@ -141,9 +161,9 @@ int main(int argc, char **argv)
     maybe_auto_dkms(m, auto_dkms);
 
     for (;;) {
-        struct pollfd pfds[3];
+        struct pollfd pfds[4];
         int n = 0;
-        int idx_ctl = -1, idx_udev = -1, idx_timer = -1;
+        int idx_ctl = -1, idx_udev = -1, idx_timer = -1, idx_sig = -1;
 
         if (ctl_fd >= 0) {
             idx_ctl = n;
@@ -163,6 +183,12 @@ int main(int argc, char **argv)
             pfds[n].events = POLLIN;
             n++;
         }
+        if (sig_fd >= 0) {
+            idx_sig = n;
+            pfds[n].fd = sig_fd;
+            pfds[n].events = POLLIN;
+            n++;
+        }
 
         int rc = poll(pfds, (nfds_t)n, -1);
         if (rc < 0) {
@@ -171,6 +197,10 @@ int main(int argc, char **argv)
             break;
         }
 
+        if (idx_sig >= 0 && (pfds[idx_sig].revents & POLLIN)) {
+            fprintf(stderr, "ds4ld: info: shutting down\n");
+            break;
+        }
         if (idx_ctl >= 0 && (pfds[idx_ctl].revents & POLLIN))
             ds4l_ctl_serve(m, ctl_fd);
         if (idx_udev >= 0 && (pfds[idx_udev].revents & POLLIN))
@@ -182,6 +212,8 @@ int main(int argc, char **argv)
         }
     }
 
+    if (sig_fd >= 0)
+        close(sig_fd);
     if (timer_fd >= 0)
         close(timer_fd);
     if (udev_fd >= 0)

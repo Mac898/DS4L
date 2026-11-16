@@ -15,6 +15,7 @@
 #include "dkms.h"
 
 #include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -117,7 +118,11 @@ static int run(char *const argv[])
     if (pid < 0)
         return 127;
     if (pid == 0) {
-        /* Child: keep stdio so pkexec/sudo can prompt. */
+        /* Child: keep stdio so pkexec/sudo can prompt. The daemon blocks
+         * SIGINT/SIGTERM for its signalfd; don't pass that on. */
+        sigset_t none;
+        sigemptyset(&none);
+        sigprocmask(SIG_SETMASK, &none, NULL);
         execvp(argv[0], argv);
         _exit(127);
     }
