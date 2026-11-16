@@ -28,11 +28,11 @@ static const char FORK_PARAM[] =
     "/sys/module/hid_playstation/parameters/ds5_drop_all_input";
 static const char MODULE_SYSFS[] = "/sys/module/hid_playstation";
 
-#ifndef DS4L_DRIVER_DIR
-#define DS4L_DRIVER_DIR "."    /* set by meson */
+#ifndef DS4L_DATADIR
+#define DS4L_DATADIR "/usr/local/share/ds4l"   /* set by meson */
 #endif
-#ifndef DS4L_TOOLS_DIR
-#define DS4L_TOOLS_DIR "."
+#ifndef DS4L_SRCDIR
+#define DS4L_SRCDIR "."
 #endif
 
 const char *ds4l_dkms_state_str(ds4l_dkms_state s)
@@ -67,13 +67,7 @@ ds4l_dkms_state ds4l_dkms_probe(void)
 
 ds4l_dkms_install ds4l_dkms_installed(void)
 {
-    char *cmd = NULL;
-    if (asprintf(&cmd,
-                 "modinfo -n hid_playstation 2>/dev/null") < 0 || !cmd)
-        return DS4L_DKMS_INSTALLED_UNKNOWN;
-
-    FILE *f = popen(cmd, "r");
-    free(cmd);
+    FILE *f = popen("modinfo -n hid_playstation 2>/dev/null", "r");
     if (!f)
         return DS4L_DKMS_INSTALLED_UNKNOWN;
 
@@ -98,20 +92,61 @@ int ds4l_dkms_audio_safe(void)
 
 /* install / reload */
 
-static const char *driver_dir(void)
+/* Where the root helper and the driver tree live: $DS4L_TOOLS_DIR and
+ * $DS4L_DRIVER_DIR if set, else the installed share/ds4l copy, else the
+ * source tree (an uninstalled dev build). */
+static void helper_paths(char *script, size_t slen, char *driver, size_t dlen)
 {
-    const char *env = getenv("DS4L_DRIVER_DIR");
-    return env && *env ? env : DS4L_DRIVER_DIR;
+    const char *tools = getenv("DS4L_TOOLS_DIR");
+    const char *drv = getenv("DS4L_DRIVER_DIR");
+    const char *base = DS4L_DATADIR;
+
+    snprintf(script, slen, "%s/tools/ds4l-dkms-ensure.sh", base);
+    if (access(script, X_OK) != 0)
+        base = DS4L_SRCDIR;
+
+    if (tools && *tools)
+        snprintf(script, slen, "%s/ds4l-dkms-ensure.sh", tools);
+    else
+        snprintf(script, slen, "%s/tools/ds4l-dkms-ensure.sh", base);
+    if (drv && *drv)
+        snprintf(driver, dlen, "%s", drv);
+    else
+        snprintf(driver, dlen, "%s/driver", base);
 }
 
-static const char *tools_dir(void)
+/* The helper runs as root. Say so when someone other than root could have
+ * changed it (a ~/.local install, a checkout). */
+static void warn_if_writable(const char *path)
 {
-    const char *env = getenv("DS4L_TOOLS_DIR");
-    return env && *env ? env : DS4L_TOOLS_DIR;
+    struct stat st;
+    if (stat(path, &st) == 0 &&
+        (st.st_uid != 0 || (st.st_mode & (S_IWGRP | S_IWOTH))))
+        fprintf(stderr, "DS4L: note: %s is not root-owned; it runs as root "
+                        "once you authorize it\n", path);
 }
 
-/* Run argv, capturing nothing, logging the exit status. Returns the exit code
- * (or 127 on spawn failure). */
+static int in_path(const char *name)
+{
+    const char *p = getenv("PATH");
+    if (!p || !*p)
+        p = "/usr/bin:/bin";
+    char buf[512];
+    while (*p) {
+        size_t n = strcspn(p, ":");
+        if (n > 0 && n < sizeof(buf) - strlen(name) - 2) {
+            snprintf(buf, sizeof(buf), "%.*s/%s", (int)n, p, name);
+            if (access(buf, X_OK) == 0)
+                return 1;
+        }
+        p += n;
+        if (*p == ':')
+            p++;
+    }
+    return 0;
+}
+
+/* Run argv and wait. Returns the exit code, 127 if it could not start. */
 static int run(char *const argv[])
 {
     pid_t pid = fork();
@@ -142,12 +177,10 @@ static int run(char *const argv[])
 int ds4l_dkms_ensure(void)
 {
     if (ds4l_dkms_probe() == DS4L_DKMS_FORK_LOADED)
-        return 0;   /* already there */
+        return 0;
 
-    /* Build the helper command line: tools/ds4l-dkms-ensure.sh <driver-dir> */
     char script[512], driver[512];
-    snprintf(script, sizeof(script), "%s/ds4l-dkms-ensure.sh", tools_dir());
-    snprintf(driver,  sizeof(driver),  "%s", driver_dir());
+    helper_paths(script, sizeof(script), driver, sizeof(driver));
 
     if (access(script, X_OK) != 0) {
         fprintf(stderr, "DS4L: helper script not found/executable: %s\n",
@@ -156,20 +189,18 @@ int ds4l_dkms_ensure(void)
     }
 
     if (geteuid() == 0) {
-        char *const av[] = { (char *)"/bin/sh", (char *)script, driver, NULL };
+        char *const av[] = { script, driver, NULL };
         run(av);
     } else {
-        /* Prefer pkexec (graphical/Polkit auth), fall back to sudo. */
-        char cmd[1100];
-        snprintf(cmd, sizeof(cmd), "exec '%s' '%s'", script, driver);
-
-        char *const pk[] = { (char *)"pkexec", (char *)"sh",
-                             (char *)"-c", cmd, NULL };
-        int rc = run(pk);
-        if (rc == 127) {   /* pkexec not present */
-            char *const su[] = { (char *)"sudo", (char *)"-b",
-                                 (char *)script, driver, NULL };
-            rc = run(su);
+        warn_if_writable(script);
+        /* pkexec for a graphical prompt, else sudo. Both wait, so the probe
+         * below sees the result. */
+        if (in_path("pkexec")) {
+            char *const av[] = { (char *)"pkexec", script, driver, NULL };
+            run(av);
+        } else {
+            char *const av[] = { (char *)"sudo", script, driver, NULL };
+            run(av);
         }
     }
 

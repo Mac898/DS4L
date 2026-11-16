@@ -7,9 +7,11 @@ cc = meson.get_compiler('c')
 inc = include_directories('include')
 
 deps = [dependency('threads')]
+# The DKMS helper is looked up in the installed share/ds4l first; the source
+# tree is only the fallback for an uninstalled build.
 cargs = [
-  '-DDS4L_DRIVER_DIR="@0@"'.format(meson.current_source_dir() / 'driver'),
-  '-DDS4L_TOOLS_DIR="@0@"'.format(meson.current_source_dir() / 'tools'),
+  '-DDS4L_DATADIR="@0@"'.format(get_option('prefix') / get_option('datadir') / 'ds4l'),
+  '-DDS4L_SRCDIR="@0@"'.format(meson.current_source_dir()),
 ]
 
 udev_dep = dependency('libudev', required : false)
