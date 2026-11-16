@@ -2,6 +2,8 @@
 Description=DualSense userspace driver daemon (DS4L)
 # Gamepad input stays with the kernel hid-playstation module; audio mode
 # needs the DS4L fork of it (see driver/).
+Wants=pipewire.service
+After=pipewire.service
 
 [Service]
 ExecStart=@bindir@/ds4ld
