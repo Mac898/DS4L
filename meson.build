@@ -77,11 +77,11 @@ install_subdir('driver',
 install_subdir('tools',
   install_dir : get_option('datadir') / 'ds4l')
 
-# Optional systemd user service; install.sh (or the command in README) copies
-# the configured unit into ~/.config/systemd/user and enables it.
+# systemd user service, in a directory systemd searches for the usual
+# prefixes (~/.local, /usr/local, /usr). install.sh enables it.
 conf = configuration_data()
 conf.set('bindir', get_option('prefix') / get_option('bindir'))
 configure_file(input : 'systemd/ds4l.service',
   output : 'ds4l.service',
   configuration : conf,
-  install_dir : get_option('datadir') / 'ds4l' / 'systemd' / 'user')
+  install_dir : get_option('datadir') / 'systemd' / 'user')
