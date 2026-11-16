@@ -98,7 +98,7 @@ The Bluetooth nodes in `src/pw_nodes.c` copy this.
 * SDL 3.4 names a PipeWire device by `node.description` only, so with
   several pads every sink looks the same, and device order isn't stable.
   What an app does know is the pad's address: SDL's gamepad serial for a
-  DualSense is its Bluetooth address (`d4-2f-4b-7e-97-7d`, over USB too),
+  DualSense is its Bluetooth address (`00-11-22-33-44-55`, over USB too),
   the evdev `uniq` the same. So the app puts the address in its stream
   name, and `src/pw_route.c` moves the stream to that pad's sink. SDL's
   `SDL_HINT_AUDIO_DEVICE_STREAM_NAME` becomes `media.name` with the

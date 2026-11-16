@@ -73,7 +73,7 @@ need nothing (`ds4l audio on` is refused there).
 
 With several pads, every device has the same name. An app that wants a
 given pad names its playback stream after the pad's Bluetooth address
-(`media.name`, e.g. "HD haptics (d4-2f-4b-7e-97-7d)"; SDL apps set
+(`media.name`, e.g. "HD haptics (00-11-22-33-44-55)"; SDL apps set
 `SDL_HINT_AUDIO_DEVICE_STREAM_NAME`), and the daemon moves that stream to
 the pad's own device, Bluetooth or USB. Other streams are left alone.
 
