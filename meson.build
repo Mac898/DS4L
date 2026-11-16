@@ -73,7 +73,7 @@ executable('ds4l', 'cli/ds4l.c',
 # `ds4l dkms install` works from the install prefix too.
 install_subdir('driver',
   install_dir : get_option('datadir') / 'ds4l',
-  exclude_files : ['.gitignore'])
+  exclude_files : ['.gitignore', 'ds4l-upstream.patch'])
 install_subdir('tools',
   install_dir : get_option('datadir') / 'ds4l')
 

@@ -4,3 +4,4 @@ build-*/
 
 # local run artifacts
 *.sock
+.claude/
