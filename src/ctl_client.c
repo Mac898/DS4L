@@ -23,7 +23,8 @@ const char *ds4l_ctl_default_path(void)
     if (rt)
         snprintf(path, sizeof(path), "%s/ds4l.sock", rt);
     else
-        snprintf(path, sizeof(path), "/tmp/ds4l-%d.sock", getuid());
+        snprintf(path, sizeof(path), "/tmp/ds4l-%u/ds4l.sock",
+                 (unsigned)getuid());
     return path;
 }
 

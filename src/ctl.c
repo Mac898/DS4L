@@ -20,11 +20,41 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
 
+/* The /tmp fallback lives in a 0700 directory owned by us. Anything else
+ * there (another user's dir, a symlink) is refused rather than reused. */
+static int private_tmp_dir(const char *path)
+{
+    char dir[256];
+    snprintf(dir, sizeof(dir), "%s", path);
+    char *slash = strrchr(dir, '/');
+    if (!slash)
+        return 0;
+    *slash = '\0';
+
+    if (mkdir(dir, 0700) != 0 && errno != EEXIST)
+        return -1;
+    struct stat st;
+    if (lstat(dir, &st) != 0)
+        return -1;
+    if (!S_ISDIR(st.st_mode) || st.st_uid != getuid() ||
+        (st.st_mode & 077)) {
+        errno = EPERM;
+        return -1;
+    }
+    return 0;
+}
+
 int ds4l_ctl_listen(const char *path)
 {
+    if (!getenv("XDG_RUNTIME_DIR") &&
+        strcmp(path, ds4l_ctl_default_path()) == 0 &&
+        private_tmp_dir(path) != 0)
+        return -1;
+
     unlink(path);
 
     int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
@@ -40,8 +70,10 @@ int ds4l_ctl_listen(const char *path)
     }
     strcpy(addr.sun_path, path);
 
-    if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0 ||
-        listen(fd, 8) != 0) {
+    mode_t old = umask(077);
+    int rc = bind(fd, (struct sockaddr *)&addr, sizeof(addr));
+    umask(old);
+    if (rc != 0 || listen(fd, 8) != 0) {
         close(fd);
         unlink(path);
         return -1;

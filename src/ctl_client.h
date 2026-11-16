@@ -5,7 +5,8 @@
 #ifndef DS4L_CTL_CLIENT_H
 #define DS4L_CTL_CLIENT_H
 
-/* Default socket path: $XDG_RUNTIME_DIR/ds4l.sock (or /tmp). */
+/* Default socket path: $XDG_RUNTIME_DIR/ds4l.sock, else
+ * /tmp/ds4l-<uid>/ds4l.sock in a directory only the user can open. */
 const char *ds4l_ctl_default_path(void);
 
 /* Connect, send one command line, print every reply line to stdout.
