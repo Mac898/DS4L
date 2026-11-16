@@ -29,7 +29,20 @@ meson compile -C build
 Needs C11 + pthreads and `libopus`. Optional: `libudev` (hotplug; without
 it a 2 s rescan), `libpipewire-0.3` (the audio devices; without it only the
 control plane). The DKMS module additionally needs `dkms`, `gcc`, `make`
-and kernel headers, only when the daemon has to build it.
+and kernel headers, only when the daemon has to build it. The `ds4l` CLI
+links none of these.
+
+| Distro | Packages |
+| --- | --- |
+| Debian, Ubuntu | `build-essential meson pkg-config libopus-dev libudev-dev libpipewire-0.3-dev dkms linux-headers-$(uname -r)` |
+| Fedora | `gcc meson pkgconf-pkg-config opus-devel systemd-devel pipewire-devel dkms kernel-devel` |
+| Arch | `base-devel meson opus systemd-libs libpipewire dkms linux-headers` |
+
+### Supported kernels
+
+Linux 6.12 or newer: the vendored driver includes `<linux/unaligned.h>`,
+which older kernels don't have. Developed and tested on a current Ubuntu
+kernel. Userspace needs PipeWire with WirePlumber for the audio devices.
 
 ## Run
 
@@ -59,9 +72,18 @@ systemd user service:
 ```
 
 The DKMS module needs root, so the daemon builds and loads it on first run
-and asks for authorization then (`--no-auto-dkms` to opt out). The daemon's
-own hidraw access comes from systemd-logind's udev ACLs for the logged-in
-user; no udev rule is needed.
+and asks for authorization then (`--no-auto-dkms` to opt out). The daemon
+runs as your user. Its hidraw access comes from systemd-logind's udev ACLs
+for the logged-in user, so usually no udev rule is needed;
+`udev/70-ds4l.rules` is an optional rule for setups where that isn't the
+case (see the comments in it).
+
+To remove it again:
+
+```sh
+./uninstall.sh            # same prefix as install.sh; prints the sudo
+                          # commands that remove the DKMS module
+```
 
 ## Audio
 
@@ -87,8 +109,38 @@ reports and is otherwise the same driver. It installs through DKMS into
 
 The daemon refuses audio mode while the stock module is loaded. Unless
 started with `--no-auto-dkms`, it installs the fork with
-`tools/ds4l-dkms-ensure.sh` (pkexec or sudo). If a controller is bound at
-that point, the new module takes effect on the next reconnect.
+`tools/ds4l-dkms-ensure.sh` (pkexec or sudo), from the installed
+`share/ds4l` copy, or the source tree for an uninstalled build. If a
+controller is bound at that point, the new module takes effect on the next
+reconnect.
+
+That helper and the driver tree run as root once you authorize them. With
+the default `~/.local` install they are writable by your user, so anything
+running as you could change them before you approve the prompt. If that
+matters, install with a root-owned prefix (`sudo meson install` to
+`/usr/local`), or install the module yourself with
+`sudo driver/install-dkms.sh` and run the daemon with `--no-auto-dkms`.
+
+With Secure Boot on, the module has to be signed. Most distros' DKMS signs
+it once a Machine Owner Key is enrolled; `driver/install-dkms.sh` warns if
+the installed module is unsigned. See [driver/README.md](driver/README.md).
+
+## Troubleshooting
+
+* Logs: `journalctl --user -u ds4l -f`, or run `ds4ld -v` in a terminal
+  after `systemctl --user stop ds4l`.
+* `ds4l dkms status` shows which `hid-playstation` is loaded and which one
+  modprobe would pick.
+* Stock module still loaded after the DKMS install: a bound controller
+  blocks the unload. Disconnect the controllers (or reboot), then
+  `sudo modprobe -r hid_playstation && sudo modprobe hid_playstation`.
+* Module installed but never loads: check Secure Boot (`mokutil
+  --sb-state`) and `sudo dkms status`; the build log is in
+  `/var/lib/dkms/hid-playstation-ds5/`.
+* `permission denied` on `/dev/hidraw*`: the session has no seat ACL for
+  the device (remote login, no logind). Use `udev/70-ds4l.rules`.
+* The pad drops off Bluetooth while streaming: see
+  [Bluetooth adapters](#bluetooth-adapters).
 
 ## Control protocol
 

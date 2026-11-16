@@ -54,15 +54,11 @@ state report carries a host timestamp that the controller echoes in its
 input reports. The time between echo changes shows how evenly state is
 arriving; that is the `late`/`maxgap` figure in `ds4l status`.
 
-## Bug: choppy speaker playback
+## Sending frames
 
-Speaker audio came out in bursts (84% duty). A lone speaker segment was
-sent while waiting for its pair, but not consumed, so the same segment went
-out again a period later. That made ~195 reports/s against the ~94-100 the
-pad sustains, and it dropped about one frame in six.
-
-Rule: whatever goes on the wire must be consumed in the same step, or the
-packet counter stalls and frames repeat.
+Whatever goes on the wire must be consumed in the same step. A segment that
+is sent but left queued goes out again a period later, the report rate
+doubles past what the pad sustains (~94-100/s), and frames are dropped.
 
 ## Wired USB audio
 
