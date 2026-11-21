@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <stdarg.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,8 +52,9 @@ struct ds4l_mgr {
     struct udev_monitor    *mon;
 #endif
 
-    int             dkms_busy;      /* install thread running               */
-    int             auto_dkms;      /* auto-install allowed                 */
+    atomic_int      dkms_busy;      /* install thread running               */
+    pthread_t       dkms_thread;
+    int             dkms_joinable;  /* dkms_thread not joined yet           */
     int             keepalive;      /* default haptic keepalive, see ds5.h  */
 };
 
@@ -178,8 +180,7 @@ static struct ds4l_dev *dev_create(ds4l_mgr *m, const ds4l_hid_info *hi)
     } else {
         snprintf(d->info.id, sizeof(d->info.id), "%s", hi->node);
     }
-    if (ds4l_get_fw(fd, &d->info.hw_version, &d->info.fw_version,
-                    &d->info.update_version) == 0)
+    if (ds4l_get_fw(fd, &d->info.hw_version, &d->info.fw_version, NULL) == 0)
         d->info.have_fw = 1;
 
     d->dev = ds5_open(fd, d->info.bus);   /* owns fd from here on */
@@ -208,7 +209,6 @@ ds4l_mgr *ds4l_mgr_create(ds4l_log_fn log, void *log_ud)
     pthread_mutex_init(&m->lock, NULL);
     m->log    = log;
     m->log_ud = log_ud;
-    m->auto_dkms = 1;
     m->keepalive = 1;
     return m;
 }
@@ -222,6 +222,11 @@ void ds4l_mgr_destroy(ds4l_mgr *m)
 {
     if (!m)
         return;
+    /* The install thread uses m. A pending pkexec or sudo prompt dies with
+     * the daemon (same session or cgroup); a build already running as root
+     * is waited for. */
+    if (m->dkms_joinable)
+        pthread_join(m->dkms_thread, NULL);
     for (int i = 0; i < m->n; i++)
         dev_destroy(m, m->devs[i]);
     m->n = 0;
@@ -338,13 +343,15 @@ void ds4l_mgr_rescan(ds4l_mgr *m)
 
     pthread_mutex_unlock(&m->lock);
 
-    /* PipeWire attachment and deferred teardown, outside m->lock. d->pw is only
-     * touched on this thread; pw callbacks read d->dev only. */
-    for (int i = 0; i < nc; i++)
-        dev_pw_attach(m, created[i]);
-
+    /* Deferred teardown and PipeWire attachment, outside m->lock. d->pw is
+     * only touched on this thread; pw callbacks read d->dev only. Teardown
+     * goes first: a pad that reconnected keeps its id, and the new device's
+     * node names and route entry must not be removed with the old one. */
     for (int i = 0; i < nv; i++)
         dev_destroy(m, victims[i]);
+
+    for (int i = 0; i < nc; i++)
+        dev_pw_attach(m, created[i]);
 }
 
 int ds4l_mgr_list(ds4l_mgr *m, struct ds4l_devinfo *out, int max)
@@ -360,24 +367,20 @@ int ds4l_mgr_list(ds4l_mgr *m, struct ds4l_devinfo *out, int max)
 struct ds4l_dev *ds4l_mgr_find(ds4l_mgr *m, const char *id)
 {
     struct ds4l_dev *hit = NULL;
+    int prefixes = 0;
     pthread_mutex_lock(&m->lock);
     for (int i = 0; i < m->n; i++) {
         const char *did = m->devs[i]->info.id;
-        if (!id || !*id) {
-            hit = m->devs[0];          /* default: first device */
+        if (!id || !*id || strcasecmp(did, id) == 0) {
+            hit = m->devs[i];          /* first device, or exact match */
+            prefixes = 1;
             break;
         }
-        if (strcmp(did, id) == 0) {
-            hit = m->devs[i];          /* exact */
-            break;
-        }
-        if (strncasecmp(did, id, strlen(id)) == 0) {
-            if (hit) { hit = (void *)-1; break; }  /* ambiguous prefix */
+        if (strncasecmp(did, id, strlen(id)) == 0 && prefixes++ == 0)
             hit = m->devs[i];
-        }
     }
     pthread_mutex_unlock(&m->lock);
-    return hit == (void *)-1 ? NULL : hit;
+    return prefixes == 1 ? hit : NULL;
 }
 
 /* DKMS admin */
@@ -401,7 +404,7 @@ static void *dkms_install_thread(void *arg)
         set_audio(m, m->devs[i], ds4l_mgr_audio_safe(m));
     pthread_mutex_unlock(&m->lock);
 
-    m->dkms_busy = 0;
+    atomic_store(&m->dkms_busy, 0);
     return NULL;
 }
 
@@ -450,9 +453,13 @@ void ds4l_devinfo_status(const struct ds4l_devinfo *i, char *out, size_t n)
         snprintf(mac, sizeof(mac), "%02x:%02x:%02x:%02x:%02x:%02x",
                  i->mac[5], i->mac[4], i->mac[3],
                  i->mac[2], i->mac[1], i->mac[0]);
+    char fw[48] = "";
+    if (i->have_fw)
+        snprintf(fw, sizeof(fw), " hw=0x%08x fw=0x%08x",
+                 (unsigned)i->hw_version, (unsigned)i->fw_version);
     snprintf(out, n,
-             "id=%s node=%s bus=%s mac=%s audio=%d",
-             i->id, i->node, bus_str(i->bus), mac, i->audio_mode);
+             "id=%s node=%s bus=%s mac=%s audio=%d%s",
+             i->id, i->node, bus_str(i->bus), mac, i->audio_mode, fw);
 }
 
 int ds4l_mgr_command(ds4l_mgr *m, struct ds4l_dev *dev,
@@ -467,7 +474,11 @@ int ds4l_mgr_command(ds4l_mgr *m, struct ds4l_dev *dev,
     resp[0] = '\0';
 
     if (!strcmp(cmd, "status")) {
-        ds4l_devinfo_status(&dev->info, resp, respsz);
+        /* The DKMS thread may change audio_mode. */
+        pthread_mutex_lock(&m->lock);
+        struct ds4l_devinfo info = dev->info;
+        pthread_mutex_unlock(&m->lock);
+        ds4l_devinfo_status(&info, resp, respsz);
         ds5_stats st;
         ds5_get_stats(d, &st);
         size_t len = strlen(resp);
@@ -553,8 +564,10 @@ int ds4l_mgr_command(ds4l_mgr *m, struct ds4l_dev *dev,
         const char *mode = argv[2];
         uint8_t v[11] = {0};
         int nv = argc - 3;
-        if (nv > 11)
-            nv = 11;
+        if (nv > 11) {
+            snprintf(resp, respsz, "too many trigger parameters");
+            return -1;
+        }
         for (int i = 0; i < nv; i++)
             if (parse_u8(argv[3 + i], &v[i])) {
                 snprintf(resp, respsz, "bad number: %s", argv[3 + i]);
@@ -630,7 +643,8 @@ int ds4l_mgr_command(ds4l_mgr *m, struct ds4l_dev *dev,
     }
     if (!strcmp(cmd, "power")) {
         uint8_t rr, tr;
-        if (argc < 3 || parse_u8(argv[1], &rr) || parse_u8(argv[2], &tr)) {
+        if (argc < 3 || parse_u8(argv[1], &rr) || parse_u8(argv[2], &tr) ||
+            rr > 7 || tr > 7) {
             snprintf(resp, respsz, "usage: power rumble_reduce trigger_reduce (0-7)");
             return -1;
         }
@@ -641,7 +655,8 @@ int ds4l_mgr_command(ds4l_mgr *m, struct ds4l_dev *dev,
     /* audio controls */
     if (!strcmp(cmd, "volume")) {
         uint8_t s, h;
-        if (argc < 3 || parse_u8(argv[1], &s) || parse_u8(argv[2], &h)) {
+        if (argc < 3 || parse_u8(argv[1], &s) || parse_u8(argv[2], &h) ||
+            h > 127) {
             snprintf(resp, respsz, "usage: volume speaker(0-255) headphone(0-127)");
             return -1;
         }
@@ -650,7 +665,7 @@ int ds4l_mgr_command(ds4l_mgr *m, struct ds4l_dev *dev,
     }
     if (!strcmp(cmd, "micvol")) {
         uint8_t v;
-        if (argc < 2 || parse_u8(argv[1], &v)) {
+        if (argc < 2 || parse_u8(argv[1], &v) || v > 64) {
             snprintf(resp, respsz, "usage: micvol 0..64");
             return -1;
         }
@@ -659,7 +674,7 @@ int ds4l_mgr_command(ds4l_mgr *m, struct ds4l_dev *dev,
     }
     if (!strcmp(cmd, "route")) {
         if (argc < 2) {
-            snprintf(resp, respsz, "usage: route hp|speaker|both");
+            snprintf(resp, respsz, "usage: route hp|spk|both");
             return -1;
         }
         if (!strcmp(argv[1], "hp") || !strcmp(argv[1], "headphone"))
@@ -669,7 +684,7 @@ int ds4l_mgr_command(ds4l_mgr *m, struct ds4l_dev *dev,
         else if (!strcmp(argv[1], "both"))
             ds5_set_audio_output(d, DS5_AUDIO_OUT_BOTH);
         else {
-            snprintf(resp, respsz, "route must be hp|speaker|both");
+            snprintf(resp, respsz, "route must be hp|spk|both");
             return -1;
         }
         return 0;
@@ -678,7 +693,7 @@ int ds4l_mgr_command(ds4l_mgr *m, struct ds4l_dev *dev,
         int mm, sm, hm;
         if (argc < 4 || parse_onoff(argv[1], &mm) || parse_onoff(argv[2], &sm) ||
             parse_onoff(argv[3], &hm)) {
-            snprintf(resp, respsz, "usage: mute mic|spk|hp on|off (x3)");
+            snprintf(resp, respsz, "usage: mute MIC SPK HP (each on|off)");
             return -1;
         }
         ds5_set_mute(d, mm, sm, hm);
@@ -711,18 +726,22 @@ int ds4l_mgr_admin(ds4l_mgr *m, int argc, char **argv,
                 snprintf(resp, respsz, "already installed and loaded");
                 return 0;
             }
-            if (m->dkms_busy) {
+            if (atomic_load(&m->dkms_busy)) {
                 snprintf(resp, respsz, "install already running");
                 return -1;
             }
-            pthread_t th;
-            m->dkms_busy = 1;
-            if (pthread_create(&th, NULL, dkms_install_thread, m) != 0) {
-                m->dkms_busy = 0;
+            if (m->dkms_joinable) {            /* the last one has finished */
+                pthread_join(m->dkms_thread, NULL);
+                m->dkms_joinable = 0;
+            }
+            atomic_store(&m->dkms_busy, 1);
+            if (pthread_create(&m->dkms_thread, NULL, dkms_install_thread,
+                               m) != 0) {
+                atomic_store(&m->dkms_busy, 0);
                 snprintf(resp, respsz, "cannot spawn install thread");
                 return -1;
             }
-            pthread_detach(th);
+            m->dkms_joinable = 1;
             snprintf(resp, respsz,
                      "install started (admin auth may be required; "
                      "check the daemon log)");

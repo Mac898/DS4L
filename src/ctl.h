@@ -8,7 +8,8 @@
 #include "ctl_client.h"
 #include "manager.h"
 
-/* Listen on `path`, replacing a stale socket. Returns fd or -1. */
+/* Listen on `path`, replacing a stale socket. Returns fd, or -1 with errno
+ * set (EADDRINUSE if another daemon answers there). */
 int  ds4l_ctl_listen(const char *path);
 
 /* Accept one pending connection and serve it until the client closes or

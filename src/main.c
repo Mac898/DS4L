@@ -28,6 +28,10 @@
 #include <sys/timerfd.h>
 #include <unistd.h>
 
+#ifndef DS4L_VERSION
+#define DS4L_VERSION "unknown"
+#endif
+
 static void log_cb(int lvl, const char *msg, void *ud)
 {
     int *verbose = ud;
@@ -72,6 +76,7 @@ static void usage(FILE *f)
         "  -k, --keepalive N   extra state reports per haptic frame, 0-3\n"
         "                      (default 1; raise if haptics stutter, 0 saves\n"
         "                      airtime on adapters that deliver evenly)\n"
+        "  -V, --version       print the version\n"
         "  -h, --help          this help\n");
 }
 
@@ -82,6 +87,7 @@ int main(int argc, char **argv)
         { "verbose",      no_argument,       NULL, 'v' },
         { "no-auto-dkms", no_argument,       NULL, 'n' },
         { "keepalive",    required_argument, NULL, 'k' },
+        { "version",      no_argument,       NULL, 'V' },
         { "help",         no_argument,       NULL, 'h' },
         { 0 }
     };
@@ -90,7 +96,7 @@ int main(int argc, char **argv)
     int verbose = 0, auto_dkms = 1, keepalive = 1;
 
     int c;
-    while ((c = getopt_long(argc, argv, "s:vnk:h", opts, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "s:vnk:Vh", opts, NULL)) != -1) {
         switch (c) {
         case 's': sockpath = optarg; break;
         case 'v': verbose = 1; break;
@@ -105,6 +111,7 @@ int main(int argc, char **argv)
             keepalive = (int)v;
             break;
         }
+        case 'V': puts("ds4ld " DS4L_VERSION); return 0;
         case 'h': usage(stdout); return 0;
         default:  usage(stderr); return 2;
         }
@@ -120,6 +127,8 @@ int main(int argc, char **argv)
     sigaddset(&sigs, SIGTERM);
     sigprocmask(SIG_BLOCK, &sigs, NULL);
     int sig_fd = signalfd(-1, &sigs, SFD_CLOEXEC);
+    if (sig_fd < 0)
+        sigprocmask(SIG_UNBLOCK, &sigs, NULL);   /* plain default handling */
 
     ds4l_mgr *m = ds4l_mgr_create(log_cb, &verbose);
     if (!m) {
@@ -153,7 +162,8 @@ int main(int argc, char **argv)
         timerfd_settime(timer_fd, 0, &its, NULL);
     }
 
-    fprintf(stderr, "ds4ld: info: listening on %s%s\n", sockpath,
+    fprintf(stderr, "ds4ld: info: ds4ld %s, listening on %s%s\n",
+            DS4L_VERSION, sockpath,
             ds4l_pw_available() ? ", PipeWire nodes" : ", no PipeWire (audio off)");
 
     ds4l_mgr_rescan(m);
@@ -215,12 +225,12 @@ int main(int argc, char **argv)
         close(sig_fd);
     if (timer_fd >= 0)
         close(timer_fd);
-    if (udev_fd >= 0)
-        close(udev_fd);
     close(ctl_fd);
     unlink(sockpath);
 
-    ds4l_pw_shutdown();
+    /* The manager owns the udev monitor fd. Its devices' PipeWire streams
+     * run on the shared loop, so they go before the loop does. */
     ds4l_mgr_destroy(m);
+    ds4l_pw_shutdown();
     return 0;
 }

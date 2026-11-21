@@ -57,11 +57,15 @@ int ds4l_pw_available(void) { return 1; }
 
 int ds4l_pw_init(void)
 {
-    if (g_pw.inited)
-        return g_pw.ok ? 0 : -1;
-    g_pw.inited = 1;
+    if (g_pw.ok)
+        return 0;
 
-    pw_init(NULL, NULL);
+    /* Not latched on failure: PipeWire may not be up yet, and the next
+     * controller to connect tries again. */
+    if (!g_pw.inited) {
+        pw_init(NULL, NULL);
+        g_pw.inited = 1;
+    }
 
     g_pw.loop = pw_thread_loop_new("ds4l-audio", NULL);
     if (!g_pw.loop)
@@ -89,7 +93,7 @@ fail:
 
 void ds4l_pw_shutdown(void)
 {
-    if (!g_pw.inited || !g_pw.loop)
+    if (!g_pw.ok)
         return;
     ds4l_route_shutdown();
     pw_thread_loop_stop(g_pw.loop);
@@ -98,7 +102,6 @@ void ds4l_pw_shutdown(void)
     pw_thread_loop_destroy(g_pw.loop);
     g_pw.loop = NULL;
     g_pw.ok = 0;
-    g_pw.inited = 0;
 }
 
 struct pw_thread_loop *ds4l_pw_loop(void) { return g_pw.ok ? g_pw.loop : NULL; }

@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
+option('udev', type : 'feature', value : 'auto',
+  description : 'hotplug through libudev (without it, a rescan every 2 s)')
+option('pipewire', type : 'feature', value : 'auto',
+  description : 'per-controller PipeWire audio devices')

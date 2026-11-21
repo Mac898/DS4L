@@ -20,10 +20,6 @@
 #include <unistd.h>
 #include <linux/hidraw.h>
 
-#define DS5_VID   0x054Cu
-#define DS5_PID_A 0x0CE6u   /* DualSense      */
-#define DS5_PID_B 0x0DF2u   /* DualSense Edge */
-
 /* Feature report ids / layouts (DualSense wire format). */
 #define DS5_FEATURE_PAIRING_INFO         0x09
 #define DS5_FEATURE_PAIRING_INFO_SIZE    20
@@ -123,7 +119,8 @@ int ds4l_hidraw_list(ds4l_hid_info *out, int max)
         unsigned bus, vid, pid;
         if (!parse_hid_id(uevent, &bus, &vid, &pid))
             continue;
-        if (vid != DS5_VID || (pid != DS5_PID_A && pid != DS5_PID_B))
+        if (vid != DS5_VENDOR_ID || (pid != DS5_PRODUCT_DUALSENSE &&
+                                     pid != DS5_PRODUCT_DUALSENSE_EDGE))
             continue;
 
         ds4l_hid_info *info = &out[n];

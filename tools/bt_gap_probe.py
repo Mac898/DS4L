@@ -6,8 +6,8 @@
 Timestamps input reports arriving on a DualSense hidraw node and reports
 inter-arrival statistics: nominal report period, gap events (inter-arrival
 above a threshold) and the spacing between gap events, to detect periodic
-Bluetooth dropouts (e.g. the 2560 ms / 5-25 ms pattern caused by inquiry
-scanning or Wi-Fi coex on another machine).
+Bluetooth dropouts (e.g. the 2560 ms / 5-25 ms pattern caused by page and
+inquiry scan windows, or by Wi-Fi coexistence).
 
 Safe to run alongside ds4ld: hidraw delivers a copy of every report to
 each open file descriptor, so this steals nothing from the daemon.
@@ -16,6 +16,7 @@ Usage:
     bt_gap_probe.py /dev/hidrawN [duration_s] [--threshold-ms X] [--json]
 """
 
+import argparse
 import collections
 import json
 import os
@@ -26,18 +27,17 @@ import time
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
-        print(__doc__)
-        return 2
-    dev = sys.argv[1]
-    duration = 30.0
-    thr_ms = 5.0
-    as_json = "--json" in sys.argv
-    args = [a for a in sys.argv[2:] if not a.startswith("--")]
-    if args:
-        duration = float(args[0])
-    if "--threshold-ms" in sys.argv:
-        thr_ms = float(sys.argv[sys.argv.index("--threshold-ms") + 1])
+    ap = argparse.ArgumentParser(
+        description="DualSense Bluetooth link-quality probe.")
+    ap.add_argument("dev", help="hidraw node, e.g. /dev/hidraw3")
+    ap.add_argument("duration", nargs="?", type=float, default=30.0,
+                    help="seconds to record (default 30)")
+    ap.add_argument("--threshold-ms", type=float, default=5.0,
+                    help="minimum gap length in ms (default 5)")
+    ap.add_argument("--json", action="store_true", help="JSON output")
+    opts = ap.parse_args()
+    dev, duration, thr_ms, as_json = (opts.dev, opts.duration,
+                                      opts.threshold_ms, opts.json)
 
     fd = os.open(dev, os.O_RDONLY)
     poller = select.poll()

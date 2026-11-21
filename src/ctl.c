@@ -3,12 +3,13 @@
  * Copyright (c) 2026 Macauley Lim
  *
  * Protocol (one command per line, replies one line each, prefix-tagged):
- *   ping
+ *   ping | help
  *   list                          -> "dev <status-line>"* then "ok N device(s)"
  *   dkms [status|install]
  *   <device-id|-> <command> ...   -> device commands (see manager.c)
  * Replies: "ok [text]" / "err [text]".
- * "-" as the device id selects the first (only) controller.
+ * The device id is an id from "list" or a unique prefix of one; "-" selects
+ * the first controller.
  */
 #define _GNU_SOURCE
 
@@ -55,20 +56,32 @@ int ds4l_ctl_listen(const char *path)
         private_tmp_dir(path) != 0)
         return -1;
 
-    unlink(path);
+    struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    if (strlen(path) >= sizeof(addr.sun_path)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    strcpy(addr.sun_path, path);
 
     int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
     if (fd < 0)
         return -1;
 
-    struct sockaddr_un addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    if (strlen(path) >= sizeof(addr.sun_path)) {
+    /* A socket someone still answers on belongs to a running daemon; only
+     * a stale one is replaced. */
+    if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
         close(fd);
+        errno = EADDRINUSE;
         return -1;
     }
-    strcpy(addr.sun_path, path);
+    close(fd);
+    unlink(path);
+
+    fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (fd < 0)
+        return -1;
 
     mode_t old = umask(077);
     int rc = bind(fd, (struct sockaddr *)&addr, sizeof(addr));
@@ -118,9 +131,9 @@ static void handle_line(ds4l_mgr *m, char *line, int fd)
         return;
     }
     if (!strcmp(argv[0], "help")) {
-        send_line(fd, "ok commands: ping | list | dkms status|install | "
-                      "<id|-> status input audio keepalive lightbar playerleds rumble "
-                      "trigger micled power volume micvol route mute");
+        send_line(fd, "ok commands: ping | help | list | dkms status|install | "
+                      "<id|-> status input audio keepalive lightbar playerleds "
+                      "rumble trigger micled power volume micvol route mute");
         return;
     }
     if (!strcmp(argv[0], "list")) {

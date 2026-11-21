@@ -21,7 +21,6 @@ struct ds4l_devinfo {
     uint8_t  mac[6];
     int      have_mac;
     uint32_t hw_version, fw_version;
-    uint16_t update_version;
     int      have_fw;
     int      audio_mode;   /* audio-mode gate currently open for it     */
 };
@@ -50,9 +49,9 @@ void ds4l_mgr_rescan(ds4l_mgr *m);
  * count. Caller-visible; used by the control socket. */
 int  ds4l_mgr_list(ds4l_mgr *m, struct ds4l_devinfo *out, int max);
 
-/* Find a managed device by id (exact match, or unique prefix, or NULL for the
- * first device). Returns the handle used by the command handlers below, or
- * NULL. */
+/* Find a managed device by id: exact match or unique prefix, any case; NULL
+ * or "" picks the first device. Returns the handle used by the command
+ * handlers below, or NULL. */
 struct ds4l_dev *ds4l_mgr_find(ds4l_mgr *m, const char *id);
 
 /* Execute one device command. argc/argv: tokens after the device id.

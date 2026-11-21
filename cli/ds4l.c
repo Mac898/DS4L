@@ -3,8 +3,9 @@
  * Copyright (c) 2026 Macauley Lim
  *
  * Connects to the daemon's control socket and forwards a command. The device
- * id may be omitted (first controller) or given as a unique id prefix; see
- * `ds4l list` for ids (Bluetooth MAC hex by default).
+ * id may be omitted (first controller) or given as an id or a unique prefix
+ * of 4 or more characters; see `ds4l list` for ids (the Bluetooth address
+ * as hex, bytes reversed).
  */
 #define _GNU_SOURCE
 
@@ -15,6 +16,10 @@
 
 #include "src/ctl_client.h"
 
+#ifndef DS4L_VERSION
+#define DS4L_VERSION "unknown"
+#endif
+
 static void usage(FILE *f)
 {
     fprintf(f,
@@ -24,14 +29,17 @@ static void usage(FILE *f)
         "\n"
         "options:\n"
         "  -s PATH   control socket (default: $XDG_RUNTIME_DIR/ds4l.sock)\n"
+        "  -V        print the version\n"
         "  -h        this help\n"
         "\n"
         "daemon commands:\n"
         "  ping\n"
+        "  help                     the daemon's command list\n"
         "  list                     connected controllers + status\n"
         "  dkms status|install      kernel DS4L module state / auto-install\n"
         "\n"
-        "device commands ([id] = optional device id prefix from `list`):\n"
+        "device commands ([id] = optional device id from `list`, or a unique\n"
+        "prefix of 4+ characters; without it the first controller is used):\n"
         "  status  [id]             id, bus, audio gate, I/O counters\n"
         "  input   [id]             parsed sticks/buttons/sensors/battery\n"
         "  audio   [id] on|off      manually open/close the audio gate\n"
@@ -64,9 +72,10 @@ int main(int argc, char **argv)
     const char *sockpath = NULL;
 
     int opt;
-    while ((opt = getopt(argc, argv, "s:h")) != -1) {
+    while ((opt = getopt(argc, argv, "+s:Vh")) != -1) {
         switch (opt) {
         case 's': sockpath = optarg; break;
+        case 'V': puts("ds4l " DS4L_VERSION); return 0;
         case 'h': usage(stdout); return 0;
         default:  usage(stderr); return 2;
         }
@@ -92,13 +101,19 @@ int main(int argc, char **argv)
         const char *id = "-";
         int first_arg = optind + 1;
 
-        if (optind + 1 < argc && strcmp(argv[optind + 1], "-") != 0) {
-            int r = ds4l_ctl_resolve_device(sockpath, argv[optind + 1]);
+        /* If the daemon is unreachable, ds4l_ctl_client() says so below. */
+        if (optind + 1 < argc) {
+            const char *tok = argv[optind + 1];
+            int r = strcmp(tok, "-") == 0 ? 1
+                                          : ds4l_ctl_resolve_device(sockpath, tok);
+            if (r == 2) {
+                fprintf(stderr, "ds4l: %s matches more than one controller "
+                                "(see 'ds4l list')\n", tok);
+                return 1;
+            }
             if (r == 1) {
-                id = argv[optind + 1];
+                id = tok;
                 first_arg = optind + 2;
-            } else if (r < 0) {
-                return 1;   /* daemon unreachable */
             }
         }
 

@@ -1,6 +1,8 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
 project('DS4L', 'c',
   version : '0.1.0',
   license : ['LGPL-3.0-or-later', 'GPL-2.0-or-later'],  # userspace / driver/
+  meson_version : '>= 0.60',
   default_options : ['c_std=c11', 'warning_level=2'])
 
 cc = meson.get_compiler('c')
@@ -9,29 +11,26 @@ inc = include_directories('include')
 deps = [dependency('threads')]
 # The DKMS helper is looked up in the installed share/ds4l first; the source
 # tree is only the fallback for an uninstalled build.
+# The version is set above and nowhere else; both binaries print it.
+version_arg = '-DDS4L_VERSION="@0@"'.format(meson.project_version())
 cargs = [
+  version_arg,
   '-DDS4L_DATADIR="@0@"'.format(get_option('prefix') / get_option('datadir') / 'ds4l'),
   '-DDS4L_SRCDIR="@0@"'.format(meson.current_source_dir()),
 ]
 
-udev_dep = dependency('libudev', required : false)
+udev_dep = dependency('libudev', required : get_option('udev'))
 if udev_dep.found()
   deps += udev_dep
   cargs += ['-DDS4L_HAVE_UDEV=1']
-  message('libudev found: hotplug monitoring enabled')
-else
-  message('libudev NOT found: falling back to periodic rescan')
 endif
 
 deps += dependency('opus')
 
-pw_dep = dependency('libpipewire-0.3', required : false)
+pw_dep = dependency('libpipewire-0.3', required : get_option('pipewire'))
 if pw_dep.found()
   deps += pw_dep
   cargs += ['-DDS4L_HAVE_PIPEWIRE=1']
-  message('libpipewire found: per-controller virtual audio devices enabled')
-else
-  message('libpipewire NOT found: virtual audio devices disabled (control still works)')
 endif
 
 # Everything the daemon needs besides main.c.
@@ -67,13 +66,20 @@ executable('ds4ld', 'src/main.c',
 executable('ds4l', 'cli/ds4l.c',
   include_directories : include_directories('.'),
   link_with : ds4l_ctl_client,
+  c_args : version_arg,
   install : true)
+
+test('unit', executable('unit', 'tests/unit.c',
+  include_directories : [inc, include_directories('src')],
+  link_with : ds4l_core,
+  dependencies : deps,
+  c_args : cargs))
 
 # Ship the DKMS driver tree + root helper next to the installed daemon so
 # `ds4l dkms install` works from the install prefix too.
 install_subdir('driver',
   install_dir : get_option('datadir') / 'ds4l',
-  exclude_files : ['.gitignore', 'ds4l-upstream.patch'])
+  exclude_files : ['.gitignore'])
 install_subdir('tools',
   install_dir : get_option('datadir') / 'ds4l')
 
@@ -85,3 +91,8 @@ configure_file(input : 'systemd/ds4l.service',
   output : 'ds4l.service',
   configuration : conf,
   install_dir : get_option('datadir') / 'systemd' / 'user')
+
+summary({
+  'udev hotplug' : udev_dep.found(),
+  'PipeWire audio devices' : pw_dep.found(),
+}, section : 'Features')

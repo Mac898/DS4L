@@ -34,7 +34,4 @@ const char *ds4l_dkms_install_str(ds4l_dkms_install i);
  * Returns 0 iff the DS4L module is loaded afterwards. */
 int ds4l_dkms_ensure(void);
 
-/* Is the DS4L module loaded, i.e. is audio mode safe? */
-int ds4l_dkms_audio_safe(void);
-
 #endif /* DS4L_DKMS_H */

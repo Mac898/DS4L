@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -28,11 +29,10 @@ const char *ds4l_ctl_default_path(void)
     return path;
 }
 
-/* Does `prefix` name exactly one connected device (id prefix match)?
- * Returns 1 yes, 0 no, -1 daemon unreachable. */
-int ds4l_ctl_resolve_device(const char *path, const char *prefix)
+int ds4l_ctl_resolve_device(const char *path, const char *token)
 {
-    if (!prefix || !*prefix)
+    size_t tlen = token ? strlen(token) : 0;
+    if (tlen == 0)
         return 0;
 
     int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
@@ -64,20 +64,26 @@ int ds4l_ctl_resolve_device(const char *path, const char *prefix)
         return -1;
     }
 
-    int matches = 0;
+    int exact = 0, prefixes = 0;
     char ln[1024];
-    size_t plen = strlen(prefix);
     while (fgets(ln, sizeof(ln), f)) {
         if (strncmp(ln, "dev id=", 7) != 0)
             continue;
         const char *id = ln + 7;
-        const char *sp = strchr(id, ' ');
-        size_t idlen = sp ? (size_t)(sp - id) : strlen(id);
-        if (idlen >= plen && strncmp(id, prefix, plen) == 0)
-            matches++;
+        size_t idlen = strcspn(id, " \n");
+        if (idlen < tlen || strncasecmp(id, token, tlen) != 0)
+            continue;
+        if (idlen == tlen)
+            exact = 1;
+        else
+            prefixes++;
     }
     fclose(f);
-    return matches == 1 ? 1 : 0;
+    if (exact)
+        return 1;
+    if (tlen < DS4L_ID_PREFIX_MIN || prefixes == 0)
+        return 0;
+    return prefixes == 1 ? 1 : 2;
 }
 
 int ds4l_ctl_client(const char *path, int argc, char **argv)

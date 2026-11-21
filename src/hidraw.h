@@ -10,8 +10,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define DS4L_MAX_HIDRAW 16
-
 typedef struct ds4l_hid_info {
     char     node[32];   /* "hidraw3"                          */
     char     dev[40];    /* "/dev/hidraw3"                     */
@@ -39,7 +37,8 @@ int ds4l_usb_sound_card(const char *usb_path);
  * success; mac[] is in report order (buf[1..6]). */
 int ds4l_get_mac(int fd, uint8_t mac[6]);
 
-/* Get firmware/hardware/update versions (feature report 0x20). Returns 0. */
+/* Get hardware, firmware and update versions (feature report 0x20); any
+ * pointer may be NULL. Returns 0 on success. */
 int ds4l_get_fw(int fd, uint32_t *hw_version, uint32_t *fw_version,
                 uint16_t *update_version);
 

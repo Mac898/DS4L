@@ -85,11 +85,6 @@ ds4l_dkms_install ds4l_dkms_installed(void)
     return ours ? DS4L_DKMS_INSTALLED_FORK : DS4L_DKMS_INSTALLED_NONE;
 }
 
-int ds4l_dkms_audio_safe(void)
-{
-    return ds4l_dkms_probe() == DS4L_DKMS_FORK_LOADED;
-}
-
 /* Where the root helper and the driver tree live: $DS4L_TOOLS_DIR and
  * $DS4L_DRIVER_DIR if set, else the installed share/ds4l copy, else the
  * source tree (an uninstalled dev build). */

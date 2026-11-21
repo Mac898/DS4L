@@ -13,8 +13,14 @@ const char *ds4l_ctl_default_path(void);
  * Returns 0 if the last line was "ok ...". */
 int  ds4l_ctl_client(const char *path, int argc, char **argv);
 
-/* Does `prefix` uniquely name a connected device (via a "list" round-trip)?
- * 1 yes, 0 no/ambiguous, -1 daemon unreachable. */
-int  ds4l_ctl_resolve_device(const char *path, const char *prefix);
+/* Shortest id prefix the CLI accepts. Shorter tokens are taken as command
+ * arguments: "0" or "255" could otherwise prefix a pad's id. */
+#define DS4L_ID_PREFIX_MIN 4
+
+/* Does `token` name a connected device (via a "list" round-trip): an exact
+ * id, or a prefix of at least DS4L_ID_PREFIX_MIN characters, any case?
+ * 1 one device, 2 several (ambiguous prefix), 0 none, -1 daemon
+ * unreachable. */
+int  ds4l_ctl_resolve_device(const char *path, const char *token);
 
 #endif /* DS4L_CTL_CLIENT_H */
