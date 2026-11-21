@@ -10,7 +10,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-PREFIX="${1:-$HOME/.local}"
+PREFIX="$(realpath -m "${1:-$HOME/.local}")"
 
 systemctl --user disable --now ds4l 2>/dev/null || true
 
@@ -35,3 +35,10 @@ To remove the kernel module too (needs root), run:
 The last line puts the stock module back; disconnect the controllers first,
 or reboot.
 MSG
+
+RULE=/etc/udev/rules.d/70-ds4l.rules
+if [ -e "$RULE" ]; then
+    echo
+    echo "The optional udev rule is installed too; remove it with:"
+    echo "  sudo rm $RULE && sudo udevadm control --reload"
+fi

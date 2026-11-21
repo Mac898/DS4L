@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
 [Unit]
 Description=DualSense userspace driver daemon (DS4L)
 # Gamepad input stays with the kernel hid-playstation module; audio mode

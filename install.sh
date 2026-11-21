@@ -11,7 +11,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-PREFIX="${1:-$HOME/.local}"
+PREFIX="$(realpath -m "${1:-$HOME/.local}")"
 
 if [ -f build/meson-private/coredata.dat ]; then
     meson configure build --prefix "$PREFIX"
