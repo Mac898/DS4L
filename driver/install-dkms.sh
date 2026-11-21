@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Install the DS4L hid-playstation fork via DKMS, into updates/dkms. That
 # outranks the stock module, so it loads on boot and is rebuilt on kernel
 # updates. Run with sudo.
@@ -9,7 +10,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 # Name and version come from dkms.conf only.
 NAME="$(sed -n 's/^PACKAGE_NAME="\(.*\)"/\1/p' "$HERE/dkms.conf")"
 VER="$(sed -n 's/^PACKAGE_VERSION="\(.*\)"/\1/p' "$HERE/dkms.conf")"
-[ -n "$NAME" ] && [ -n "$VER" ] || { echo "cannot read $HERE/dkms.conf" >&2; exit 1; }
+if [ -z "$NAME" ] || [ -z "$VER" ]; then
+    echo "cannot read $HERE/dkms.conf" >&2
+    exit 1
+fi
 SRC="/usr/src/${NAME}-${VER}"
 
 if [ ! -f "$HERE/hid-playstation.c" ] || [ ! -f "$HERE/hid-ids.h" ]; then

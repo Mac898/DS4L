@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Out-of-tree build of the DS4L hid-playstation fork.
 obj-m += hid-playstation.o
 

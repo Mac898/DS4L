@@ -21,6 +21,11 @@
 
 #include "hid-ids.h"
 
+/* kzalloc_obj() is new in Linux 7.0; this lets the driver build on 6.12+. */
+#ifndef kzalloc_obj
+#define kzalloc_obj(P) kzalloc(sizeof(P), GFP_KERNEL)
+#endif
+
 /*
  * While audio is streaming the controller interleaves microphone data into
  * its input reports, and the gamepad parser would read it as stick and button
@@ -29,7 +34,7 @@
  */
 static bool ds5_drop_all_input;
 module_param(ds5_drop_all_input, bool, 0644);
-MODULE_PARM_DESC(ds5_drop_all_input, "Drop all DualSense input reports (debugging)");
+MODULE_PARM_DESC(ds5_drop_all_input, "Drop all DualSense Bluetooth input reports (debugging)");
 
 /* List of connected playstation devices. */
 static DEFINE_MUTEX(ps_devices_lock);

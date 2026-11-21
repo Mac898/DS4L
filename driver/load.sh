@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Load the DS4L module in place of the stock one, without installing it.
 # Run with sudo.
 set -euo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "run with sudo"; exit 1; }
 HERE="$(cd "$(dirname "$0")" && pwd)"
 KO="$HERE/hid-playstation.ko"
-[ -f "$KO" ] || { echo "build first:  ./prepare.sh && make"; exit 1; }
+[ -f "$KO" ] || { echo "build first: make"; exit 1; }
 
 modprobe -r hid_playstation 2>/dev/null || rmmod hid_playstation 2>/dev/null || true
 sleep 0.3

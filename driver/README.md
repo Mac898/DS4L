@@ -1,7 +1,7 @@
 # driver/
 
 A fork of the in-kernel `hid-playstation` driver with one change
-(`ds4l.patch`).
+(`ds4l.patch`), currently on top of Linux 7.2's.
 
 When userspace puts a DualSense into audio mode (the `0x36` output report),
 the controller interleaves microphone data into its `0x31` input reports.
@@ -13,7 +13,8 @@ hidraw node DS4L uses for audio.
 
 Audio input reports have bit 1 of `data[1]` set; gamepad reports don't.
 The patch also adds a `ds5_drop_all_input` module parameter that drops every
-input report. DS4L uses its presence to tell this module from the stock one.
+Bluetooth input report. DS4L uses its presence to tell this module from the
+stock one.
 
 An RFC of the minimal patch (the audio-report check alone, without the
 module parameter) was posted to linux-input:
@@ -23,11 +24,14 @@ The generated `hid-playstation.c` is derived from the kernel driver and is
 GPL-2.0-or-later; the license text is in [COPYING](COPYING). The scripts
 here are glue.
 
-It needs kernel 6.12 or newer (the file includes `<linux/unaligned.h>`).
+It needs kernel 6.12 or newer: the file includes `<linux/unaligned.h>`.
+The patch also maps `kzalloc_obj()`, new in 7.0, to `kzalloc()` on older
+kernels.
 
 ## Files
 
-* `ds4l.patch`: the change, against `drivers/hid/hid-playstation.c`.
+* `ds4l.patch`: the change, against `drivers/hid/hid-playstation.c`, plus
+  the 6.12 compatibility define.
 * `prepare.sh`: copies the base file and `hid-ids.h` from a kernel source
   tree (given as an argument or `KERNEL_SRC`) and applies the patch. Run it
   to rebase onto a new kernel.
@@ -65,7 +69,8 @@ Secure Boot is on and the installed module is unsigned.
 
 ## How the audio flag was found
 
-`sudo ./load-debug.sh` loads the module with every input report dropped.
+`sudo ./load-debug.sh` loads the module with every Bluetooth input report
+dropped.
 Stream audio and read the raw reports from hidraw (`tools/bt_gap_probe.py`
 or `hexdump`) with the mic muted and unmuted: audio reports have bit 1 of
 `data[1]` set, gamepad reports bit 0. With the patch loaded and audio
